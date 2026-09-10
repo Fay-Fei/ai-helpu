@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI 问答助手</title>
+<style>
+:root{
+  --primary:#1e5eff; --primary-dark:#1249cc; --primary-bg:#eef3ff;
+  --bg:#f5f7fb; --card:#ffffff; --line:#e5e9f2; --text:#1c2333; --muted:#6b7280;
+  --radius:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer}
+input,textarea,select{font-family:inherit}
+img{max-width:100%}
+
+#app{max-width:820px;height:100dvh;margin:0 auto;display:flex;flex-direction:column;background:var(--bg)}
+.view{display:none;flex:1;flex-direction:column;min-height:0}
+.view.active{display:flex}
+
+header{display:flex;align-items:center;gap:10px;padding:14px 16px;background:linear-gradient(135deg,#1e5eff,#3b82f6);color:#fff;box-shadow:0 2px 10px rgba(30,94,255,.25);z-index:5}
+.h-avatar{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.h-title{font-size:17px;font-weight:600;letter-spacing:.5px}
+.h-sub{font-size:11px;opacity:.85;margin-top:2px}
+.h-actions{margin-left:auto;display:flex;gap:8px}
+.h-btn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 12px;font-size:12px}
+
+#chatList{flex:1;overflow-y:auto;padding:18px 14px 8px;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth}
+.msg{display:flex;gap:8px;max-width:94%}
+.msg .m-ava{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px}
+.msg.bot .m-ava{background:var(--primary-bg);border:1px solid var(--line)}
+.msg.user{align-self:flex-end;flex-direction:row-reverse}
+.msg.user .m-ava{background:linear-gradient(135deg,#1e5eff,#3b82f6);color:#fff}
+.m-body{min-width:0}
+.m-name{font-size:11px;color:var(--muted);margin-bottom:4px}
+.msg.user .m-name{display:none}
+.m-bubble{padding:12px 14px;border-radius:14px;font-size:14.5px;line-height:1.7;word-break:break-word}
+.msg.bot .m-bubble{background:var(--card);border:1px solid var(--line);border-top-left-radius:4px;box-shadow:0 1px 4px rgba(28,35,51,.04)}
+.msg.user .m-bubble{background:linear-gradient(135deg,#1e5eff,#3b82f6);color:#fff;border-top-right-radius:4px}
+.m-time{font-size:10.5px;color:var(--muted);margin-top:4px}
+
+.ans-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.ans-code{font-size:11px;font-weight:700;color:#fff;background:var(--primary);border-radius:6px;padding:2px 8px}
+.ans-node{font-size:11px;color:var(--primary);background:var(--primary-bg);border:1px solid #c8d6ff;border-radius:6px;padding:2px 8px;font-weight:600}
+.ans-stub{font-size:11px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:2px 8px;font-weight:600}
+.ans-q{font-size:15px;font-weight:700;margin-bottom:10px;line-height:1.5}
+.ans-cause{font-size:13.5px;line-height:1.7;color:#4b5563;background:#f8fafc;border-left:3px solid var(--primary);border-radius:0 8px 8px 0;padding:8px 12px}
+.ans-cause-card{margin:10px 0 2px;background:#fff8f1;border:1px solid #ffe2c2;border-radius:10px;padding:10px 12px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.ans-cause-head{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.ans-cause-body{font-size:13.5px;line-height:1.7;color:#7c4a1e;text-align:justify;text-align-last:left}
+.ans-sol-head{display:flex;align-items:center;gap:6px;margin:14px 0 6px}
+.ans-sec-icon{font-size:13px;line-height:1;display:inline-flex;align-items:center}
+.ans-sec-tag{font-size:11.5px;font-weight:700;line-height:1.4;padding:2px 9px;border-radius:6px;border:1px solid transparent}
+.tag-amber{color:#b45309;background:#ffedd5;border-color:#fed7aa}
+.tag-red{color:#cf1322;background:#fff1f0;border-color:#ffccc7}
+.tag-blue{color:#1e5eff;background:var(--primary-bg);border-color:#c8d6ff}
+.ans-steps{list-style:none;margin:4px 0 6px}
+.ans-steps li{position:relative;padding:0 0 9px 0;font-size:13.5px;line-height:1.65;text-align:justify;text-align-last:left}
+.ans-steps li.m-step{display:flex;align-items:flex-start;gap:6px;padding:0 0 9px 0}
+.ans-steps li.m-step::before{content:'✅';position:static;left:auto;top:auto;width:auto;height:auto;border-radius:0;background:none;color:inherit;font-size:13.5px;font-weight:400;display:inline-flex;align-items:center;justify-content:center;line-height:1.65;flex:0 0 auto}
+.ans-note-box{margin:10px 0 2px;background:#fff5f5;border:1px solid #ffd6d6;border-radius:10px;padding:10px 12px 6px}
+.ans-note-head{display:flex;align-items:center;gap:6px;margin:0 0 6px}
+.ans-note{font-size:13.5px;line-height:1.7;color:#cf1322;text-align:justify;text-align-last:left}
+.ans-shot{margin-top:10px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.ans-shot img{display:block;width:100%;cursor:zoom-in;background:#f1f5f9}
+.ans-shot .cap{font-size:11px;color:var(--muted);padding:5px 10px;background:#f8fafc;border-top:1px solid var(--line)}
+.rel-wrap{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.rel-title{font-size:12px;color:var(--muted);margin-bottom:8px}
+.rel-chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:var(--primary-bg);color:var(--primary);border:1px solid #c8d6ff;border-radius:16px;padding:5px 12px;font-size:12.5px;max-width:100%;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.miss-box{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px;font-size:13.5px;color:#92400e;line-height:1.7}
+
+.welcome{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:0 1px 4px rgba(28,35,51,.04)}
+.welcome h3{font-size:15px;margin-bottom:6px}
+.welcome p{font-size:13px;color:var(--muted);line-height:1.7}
+.welcome-tip{font-size:12px;color:var(--muted);opacity:.85;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.hot-title{font-size:12px;color:var(--muted);margin:14px 0 8px}
+.hot-chips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:2px}
+.hot-chips .chip{font-size:11.5px;padding:6px 6px;text-align:center;justify-content:center;line-height:1.35}
+.typing{display:inline-flex;gap:4px;padding:4px 2px}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:blink 1s infinite}
+.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+
+footer{padding:10px 14px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 70%,transparent)}
+.input-row{display:flex;gap:8px;background:var(--card);border:1.5px solid var(--line);border-radius:22px;padding:6px 6px 6px 16px;align-items:center;box-shadow:0 2px 10px rgba(28,35,51,.06)}
+.input-row:focus-within{border-color:var(--primary)}
+#qInput{flex:1;border:none;outline:none;font-size:15px;background:transparent;height:38px;min-width:0}
+#sendBtn{background:var(--primary);color:#fff;border:none;border-radius:18px;height:38px;min-width:64px;font-size:14px;font-weight:600}
+.tip-line{text-align:center;font-size:11px;color:#9aa3b2;margin-top:6px}
+.icon-btn{background:var(--bg);border:1px solid var(--line);border-radius:50%;width:38px;height:38px;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;transition:.15s}
+.icon-btn:hover{border-color:var(--primary);background:var(--card)}
+.up-img{max-width:180px;max-height:160px;border-radius:10px;margin:2px 0 4px;display:block;cursor:zoom-in;border:1px solid var(--line)}
+.up-txt{white-space:pre-wrap;word-break:break-word}
+.ocr-status{font-size:12px;color:var(--primary);padding-top:4px}
+.ocr-status.err{color:#dc2626}
+.msg.user .m-bubble{background:var(--primary);color:#fff}
+.msg.user .m-bubble .up-img{box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.msg.user .m-bubble .ocr-status{color:#fff;opacity:.92}
+
+.a-head{display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+.a-head .t{font-size:16px;font-weight:700}
+.a-back{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:13px;color:var(--text)}
+.a-body{flex:1;overflow-y:auto;padding:14px}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+.stat .n{font-size:19px;font-weight:700;color:var(--primary)}
+.stat .l{font-size:11px;color:var(--muted);margin-top:3px}
+.toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.t-btn{background:var(--primary);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600}
+.t-btn.sec{background:var(--card);color:var(--text);border:1px solid var(--line)}
+.t-btn.warn{background:var(--card);color:#dc2626;border:1px solid #fecaca}
+#adminSearch{flex:1;min-width:150px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13.5px;outline:none;background:var(--card);width:100%;margin-bottom:12px}
+.cat-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.cat-pill{background:var(--card);border:1px solid var(--line);color:var(--muted);border-radius:14px;padding:4px 12px;font-size:12.5px}
+.cat-pill.on{background:var(--primary);border-color:var(--primary);color:#fff}
+.entry-list{display:flex;flex-direction:column;gap:10px}
+.entry{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;align-items:flex-start;gap:10px}
+.entry .e-main{flex:1;min-width:0}
+.e-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px}
+.e-code{font-size:11px;font-weight:700;color:#fff;background:var(--primary);border-radius:5px;padding:2px 7px}
+.e-node{font-size:11px;color:var(--primary);background:var(--primary-bg);border:1px solid #c8d6ff;border-radius:5px;padding:2px 7px;font-weight:600}
+.e-q{font-size:14px;font-weight:600;line-height:1.5;word-break:break-all}
+.e-meta{font-size:11.5px;color:var(--muted);margin-top:5px;display:flex;gap:10px;flex-wrap:wrap}
+.e-ops{display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+.e-op{background:var(--bg);border:1px solid var(--line);border-radius:6px;font-size:12px;padding:3px 9px;color:var(--text)}
+.e-op.del{color:#dc2626;border-color:#fecaca}
+.empty-tip{text-align:center;color:var(--muted);font-size:13px;padding:40px 0;line-height:2}
+.warn-note{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.7;margin-bottom:12px}
+.storage{font-size:11.5px;color:var(--muted);margin-bottom:10px}
+.storage b{color:var(--text)}
+.bar{height:6px;background:#e5e9f2;border-radius:3px;overflow:hidden;margin-top:5px}
+.bar i{display:block;height:100%;background:var(--primary);width:0}
+
+.modal-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal-mask.show{display:flex}
+.modal{background:var(--card);border-radius:16px;width:100%;max-width:480px;max-height:88dvh;overflow-y:auto;padding:20px;box-shadow:0 20px 60px rgba(15,23,42,.3)}
+.modal h3{font-size:16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.m-close{background:none;border:none;font-size:20px;color:var(--muted);line-height:1}
+.f-row{margin-bottom:11px}
+.f-row label{display:block;font-size:12.5px;font-weight:600;color:#374151;margin-bottom:5px}
+.f-row label .req{color:#dc2626}
+.f-row input,.f-row textarea,.f-row select{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13.5px;outline:none;background:#fbfcfe}
+.f-row input:focus,.f-row textarea:focus,.f-row select:focus{border-color:var(--primary)}
+.f-row textarea{resize:vertical;min-height:64px;line-height:1.6}
+.f-hint{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5}
+.two{display:flex;gap:10px}
+.two>div{flex:1}
+.shot-box{border:1px dashed var(--line);border-radius:10px;padding:10px;text-align:center;background:#fbfcfe}
+.shot-box img{max-height:150px;border-radius:8px;border:1px solid var(--line);margin-bottom:8px;display:block;margin-left:auto;margin-right:auto}
+.m-btns{display:flex;gap:10px;margin-top:16px}
+.m-btn{flex:1;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:600}
+.m-btn.pri{background:var(--primary);color:#fff}
+.m-btn.sec{background:var(--bg);color:var(--text);border:1px solid var(--line)}
+.pw-input{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:12px;font-size:18px;text-align:center;letter-spacing:8px;outline:none;margin-bottom:6px}
+.pw-input:focus{border-color:var(--primary)}
+.pw-err{color:#dc2626;font-size:12.5px;text-align:center;min-height:18px;margin-bottom:6px}
+
+#lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;z-index:80;padding:16px;overflow:auto}
+#lightbox.show{display:flex}
+#lightbox img{max-width:100%;max-height:none;border-radius:8px}
+
+#toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%) translateY(20px);background:#1c2333;color:#fff;font-size:13px;border-radius:10px;padding:10px 18px;opacity:0;pointer-events:none;transition:all .3s;z-index:99;max-width:80vw;text-align:center}
+#toast.show{opacity:.95;transform:translateX(-50%) translateY(0)}
+@media (max-width:480px){.stat-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+<script>window.__PRELOADED__={"app":"ai-faq","ver":2,"exportedAt":"2026-09-10T07:20:00.053Z","stats":{"ask":6,"hit":3},"entries":[{"id":"mtv5evigfbjzh","code":"P001","node":"注册","kw":["子账号不能注册直营合伙人，请解绑后重","新注册。"],"cause":"该手机号使用者已绑定天富通，是代理商勘探人员、安装人员等，该账号不允许注册富家汇。","sol":"方式一：更换手机号\n方式二：解绑天富通\n①使用该手机号登录天富通APP\n②点击我的-企业管理-退出当前企业，该手机号会自动注销/释放\n老版天富通解绑步骤:\n①登录天富通-我的-账号安全-手机号-解绑","note":"注销前请自行核实数据、金额相关信息，注销后将无法恢复，所带来的损失需自己承担,","shot":"","hits":0,"u":"2026-09-10"},{"id":"mtv5evigue6bc","code":"P002","node":"实名认证","kw":["运营商三要素校验：身份信息存疑"],"cause":"系统自动校验出手机号与运营商端口信息不一致。","sol":"自行判断是否存在以下情况：\n①输入的身份信息与手机号开卡时身份信息不一致\n②新注册手机号、信息变更(携号转网、过户)：对应运营商还未更新数据\n③非三大运营商(移动、联通、电信)手机号或虚拟运营商的手机号（号码开头为170、171、部分172等）\n\n上述情况有一项不满足，建议更换手机号。","note":"虚拟号段参考：\n170 号段：最经典的虚拟号段。\n171 号段：主要归属联通虚拟运营商。\n162/165/167 号段：分别为电信、移动、联通合作的虚拟运营商号段。\n\n其他号段：如 144、146、148 等多为物联网专用号段，不支持完整语音通话。","shot":"","hits":0,"u":"2026-09-10"},{"id":"mtv5evigoboj7","code":"P003","node":"实名认证","kw":["用户信用风险校验：用户信息异常"],"cause":"系统自动校验出该身份信息可能存在个人征信异常或已被列为失信被执行人。","sol":"建议更换注册人员。","note":"","shot":"","hits":0,"u":"2026-09-10"},{"id":"mtv5evigxj4sv","code":"P004","node":"实名认证","kw":["身份信息重复校验：身份信息重复"],"cause":"系统自动校验出该身份信息已被认证，不支持重复认证。","sol":"①自行排查自有手机号是否曾登录注册富家汇。\n②找到曾经登录的手机号后，可决定是否注销旧账号。","note":"注销帐号需确认自己是否有在在途未结清的费用或有效线索，一旦注销，费用无法追回，请谨慎操作！","shot":"","hits":3,"u":"2026-09-10"},{"id":"mtv5eviga6jmo","code":"P005","node":"线索提交","kw":["您当前提交的线索超过您的业务开展范围，不可提交线索！"],"cause":"提交的线索范围超过接单范围，不支持提交线索。","sol":"更改接单范围：\n首页-签约中心-接单范围","note":"作业区域30天仅允许变更1次；最多可选择5个地级市，不可跨省级区域选择。","shot":"","hits":0,"u":"2026-09-10"},{"id":"mtv5g0gk0gxz1","hits":0,"code":"P006","node":"渠道伙伴审核","kw":["当前用户未完成初装费协议签约，请先协助当前用户登录天合富家APP签约"],"cause":"线索洽谈时填写了初装费，触发初装费支付协议，协议未完成签署。","sol":"①用户留意天合富家短信，完成签约（短信有效期2天）\n②一级代理商登录天富通：工作台-运营管理-合同-签约","note":"用户端签约失效或信息接收异常，可以登录安心签完成签约，使用安心签的用户，需要人工运维数据。","shot":"","u":"2026-09-10"}]};</script>
+</head>
+<body>
+<div id="app">
+
+  <!-- 员工问答端 -->
+  <div class="view" id="chatView">
+    <header>
+      <div class="h-avatar">🤖</div>
+      <div>
+        <div class="h-title">AI 问答助手</div>
+        <div class="h-sub">问题库 · <span id="kbCount">6</span> 条</div>
+      </div>
+      <div class="h-actions">
+        <button class="h-btn" onclick="openPwdModal()">管理</button>
+      </div>
+    </header>
+    <main id="chatList"><div class="msg bot"><div class="m-ava">🤖</div><div class="m-body"><div class="m-name">AI 助手</div><div class="m-bubble"><div class="welcome"><h3>你好，我是 AI 问答助手 👋</h3><p>把系统报错提示打出来（原样复制最好），我会给出标准处理方案。<br>如果是未收录的问题，我会记录下来，后续更新内容。</p><p class="welcome-tip">小提示：也可直接上传报错截图 📷 自动识别文字。</p></div><div class="hot-title">🔥 高频问题</div><div class="hot-chips"><button class="chip" onclick="askChip(this)" data-id="mtv5evigxj4sv">身份信息重复校验：身份信息重复</button></div></div><div class="m-time">15:19</div></div></div></main>
+    <footer>
+      <div class="input-row">
+        <button class="icon-btn" onclick="document.getElementById('ocrFile').click()" title="上传截图，自动识别报错文字">📷</button>
+        <input id="qInput" placeholder="输入出现的问题提示词，或直接上传问题图片。" autocomplete="off">
+        <button id="sendBtn" onclick="send()">发送</button>
+      </div>
+      <input type="file" id="ocrFile" accept="image/*" style="display:none" onchange="ocrAsk(this)">
+      <div class="tip-line">可上传报错截图 📷 自动识别文字，或直接描述现象</div>
+    </footer>
+  </div>
+
+  <!-- 管理端 -->
+  <div class="view active" id="adminView">
+    <div class="a-head">
+      <button class="a-back" onclick="backChat()">← 返回</button>
+      <div class="t">问题库管理</div>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="a-back" onclick="openPwdModal(true)">改密码</button>
+      </div>
+    </div>
+    <div class="a-body">
+      <div class="warn-note">⚠️ 数据存在本浏览器。换设备或清缓存前务必「导出备份」。截图会占用空间，建议控制在合理数量。</div>
+      <div class="stat-grid">
+        <div class="stat"><div class="n" id="stCount">6</div><div class="l">问题条目</div></div>
+        <div class="stat"><div class="n" id="stAsk">6</div><div class="l">总提问</div></div>
+        <div class="stat"><div class="n" id="stHit">3</div><div class="l">命中解答</div></div>
+        <div class="stat"><div class="n" id="stRate">50%</div><div class="l">命中率</div></div>
+      </div>
+      <div class="storage">已占用 <b id="stSize">3 KB</b> / 约 5 MB <div class="bar"><i id="stBar" style="width: 0.0674247%;"></i></div></div>
+      <div class="toolbar">
+        <button class="t-btn" onclick="openForm()">＋ 新增问题</button>
+        <button class="t-btn sec" onclick="exportJSON()">导出备份</button>
+        <button class="t-btn sec" onclick="document.getElementById('importFile').click()">导入备份</button>
+        <button class="t-btn sec" onclick="exportCSV()">下载表格模板</button>
+        <button class="t-btn sec" onclick="document.getElementById('csvFile').click()">表格导入</button>
+        <button class="t-btn warn" onclick="exportSelfHTML()">导出带数据副本</button>
+        <button class="t-btn warn" onclick="delUnnamed()">清空未命名</button>
+        <button class="t-btn warn" onclick="loadDemo(true)">恢复示例</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(this)">
+        <input type="file" id="csvFile" accept=".csv,.txt" style="display:none" onchange="importCSV(this)">
+      </div>
+      <input id="adminSearch" placeholder="搜索编号 / 提示词 / 节点…" oninput="renderAdmin()">
+      <div class="cat-bar" id="catBar"><button class="cat-pill on" onclick="nodeFilter='全部';renderAdmin()">全部</button><button class="cat-pill" onclick="nodeFilter='注册';renderAdmin()">注册</button><button class="cat-pill" onclick="nodeFilter='实名认证';renderAdmin()">实名认证</button><button class="cat-pill" onclick="nodeFilter='线索提交';renderAdmin()">线索提交</button><button class="cat-pill" onclick="nodeFilter='渠道伙伴审核';renderAdmin()">渠道伙伴审核</button></div>
+      <div class="entry-list" id="entryList"><div class="entry"><div class="e-main"><div class="e-top"><span class="e-code">P001</span><span class="e-node">注册</span></div><div class="e-q">子账号不能注册直营合伙人，请解绑后重</div><div class="e-meta"><span>提示词：子账号不能注册直营合伙人，请解绑后重 / 新注册。</span></div><div class="e-meta"><span>更新 2026-09-10</span><span>被问 0 次</span></div></div><div class="e-ops"><button class="e-op" onclick="openForm('mtv5evigfbjzh')">编辑</button><button class="e-op del" onclick="delEntry('mtv5evigfbjzh')">删除</button></div></div><div class="entry"><div class="e-main"><div class="e-top"><span class="e-code">P002</span><span class="e-node">实名认证</span></div><div class="e-q">运营商三要素校验：身份信息存疑</div><div class="e-meta"><span>提示词：运营商三要素校验：身份信息存疑</span></div><div class="e-meta"><span>更新 2026-09-10</span><span>被问 0 次</span></div></div><div class="e-ops"><button class="e-op" onclick="openForm('mtv5evigue6bc')">编辑</button><button class="e-op del" onclick="delEntry('mtv5evigue6bc')">删除</button></div></div><div class="entry"><div class="e-main"><div class="e-top"><span class="e-code">P003</span><span class="e-node">实名认证</span></div><div class="e-q">用户信用风险校验：用户信息异常</div><div class="e-meta"><span>提示词：用户信用风险校验：用户信息异常</span></div><div class="e-meta"><span>更新 2026-09-10</span><span>被问 0 次</span></div></div><div class="e-ops"><button class="e-op" onclick="openForm('mtv5evigoboj7')">编辑</button><button class="e-op del" onclick="delEntry('mtv5evigoboj7')">删除</button></div></div><div class="entry"><div class="e-main"><div class="e-top"><span class="e-code">P004</span><span class="e-node">实名认证</span></div><div class="e-q">身份信息重复校验：身份信息重复</div><div class="e-meta"><span>提示词：身份信息重复校验：身份信息重复</span></div><div class="e-meta"><span>更新 2026-09-10</span><span>被问 3 次</span></div></div><div class="e-ops"><button class="e-op" onclick="openForm('mtv5evigxj4sv')">编辑</button><button class="e-op del" onclick="delEntry('mtv5evigxj4sv')">删除</button></div></div><div class="entry"><div class="e-main"><div class="e-top"><span class="e-code">P005</span><span class="e-node">线索提交</span></div><div class="e-q">您当前提交的线索超过您的业务开展范围，不可提交线索！</div><div class="e-meta"><span>提示词：您当前提交的线索超过您的业务开展范围，不可提交线索！</span></div><div class="e-meta"><span>更新 2026-09-10</span><span>被问 0 次</span></div></div><div class="e-ops"><button class="e-op" onclick="openForm('mtv5eviga6jmo')">编辑</button><button class="e-op del" onclick="delEntry('mtv5eviga6jmo')">删除</button></div></div><div class="entry"><div class="e-main"><div class="e-top"><span class="e-code">P006</span><span class="e-node">渠道伙伴审核</span></div><div class="e-q">当前用户未完成初装费协议签约，请先协助当前用户登录天合富家APP签约</div><div class="e-meta"><span>提示词：当前用户未完成初装费协议签约，请先协助当前用户登录天合富家APP签约</span></div><div class="e-meta"><span>更新 2026-09-10</span><span>被问 0 次</span></div></div><div class="e-ops"><button class="e-op" onclick="openForm('mtv5g0gk0gxz1')">编辑</button><button class="e-op del" onclick="delEntry('mtv5g0gk0gxz1')">删除</button></div></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="pwMask">
+  <div class="modal" style="max-width:340px">
+    <h3 id="pwTitle">管理员验证</h3>
+    <input class="pw-input" id="pwInput" type="password" maxlength="12" placeholder="••••••" onkeydown="if(event.key==='Enter')doPwd()">
+    <div class="pw-err" id="pwErr"></div>
+    <div class="m-btns">
+      <button class="m-btn sec" onclick="closePw()">取消</button>
+      <button class="m-btn pri" onclick="doPwd()">进入</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="formMask">
+  <div class="modal">
+    <h3 id="formTitle">新增问题 <button class="m-close" onclick="closeForm()">×</button></h3>
+    <div class="two">
+      <div class="f-row"><label>问题编号 <span class="req">*</span></label>
+        <input id="fCode" placeholder="如 P001"><div class="f-hint">员工可直接输入编号查询</div></div>
+      <div class="f-row"><label>出现的节点 <span class="req">*</span></label>
+        <input id="fNode" list="nodeList" placeholder="如 下单 / 支付 / 发货"><datalist id="nodeList"><option value="注册"></option><option value="实名认证"></option><option value="线索提交"></option><option value="渠道伙伴审核"></option></datalist></div>
+    </div>
+    <div class="f-row"><label>问题提示词（每行一条）<span class="req">*</span></label>
+      <textarea id="fKw" placeholder="员工可能看到的报错、提示语或口语描述
+例：库存不足
+例：提交失败
+例：提示暂时无法下单"></textarea>
+      <div class="f-hint">★ 这是匹配的关键：报错原文、系统提示、口语说法都写进去，写得越全越容易命中。首条作为标题显示。</div></div>
+    <div class="f-row"><label>问题出现的原因</label>
+      <textarea id="fCause" placeholder="为什么会出现这个问题（选填但建议写）"></textarea></div>
+    <div class="f-row"><label>解决方式（每行一步）<span class="req">*</span></label>
+      <textarea id="fSol" style="min-height:110px" placeholder="按你以往的处理方式，一步一步写
+例：先检查该商品库存是否被占用
+例：在后台释放占用后重新提交"></textarea></div>
+    <div class="f-row"><label>处理时需要注意的事项</label>
+      <textarea id="fNote" placeholder="易错点、红线、必须提醒的话术（选填）"></textarea></div>
+    <div class="f-row"><label>问题截图实例</label>
+      <div class="shot-box">
+        <div id="shotPreview"></div>
+        <button class="e-op" type="button" onclick="document.getElementById('shotFile').click()">选择图片</button>
+        <button class="e-op del" type="button" onclick="clearShot()" id="shotDel" style="display:none">移除</button>
+        <input type="file" id="shotFile" accept="image/*" style="display:none" onchange="pickShot(this)">
+        <div class="f-hint">自动压缩后保存，也可在下方直接填图片链接</div>
+      </div>
+      <input id="fShot" placeholder="或粘贴图片链接 http…" style="margin-top:8px">
+    </div>
+    <div class="m-btns">
+      <button class="m-btn sec" onclick="closeForm()">取消</button>
+      <button class="m-btn pri" onclick="saveForm()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="impMask">
+  <div class="modal" style="max-width:340px">
+    <h3>导入方式</h3>
+    <div class="m-btns" style="flex-direction:column">
+      <button class="m-btn sec" style="width:100%" onclick="doImport('merge')">合并导入（保留现有，追加新的）</button>
+      <button class="m-btn sec" style="width:100%;color:#dc2626" onclick="doImport('replace')">全部替换（清空后导入）</button>
+      <button class="m-btn sec" style="width:100%" onclick="closeImp()">取消</button>
+    </div>
+  </div>
+</div>
+
+<div id="lightbox" onclick="this.classList.remove('show')"><img id="lightboxImg" src="" alt=""></div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script>
+const LS_ENTRIES='faq_entries', LS_STATS='faq_stats', LS_PASS='faq_adminPass';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let entries=[], stats={ask:0,hit:0}, nodeFilter='全部', editId=null, shotData='';
+
+function load(){
+  try{entries=JSON.parse(localStorage.getItem(LS_ENTRIES))||[]}catch(e){entries=[]}
+  try{stats=Object.assign({ask:0,hit:0},JSON.parse(localStorage.getItem(LS_STATS))||{})}catch(e){}
+  if(!localStorage.getItem(LS_PASS))localStorage.setItem(LS_PASS,'111111');
+  if(window.__PRELOADED__){
+    entries=window.__PRELOADED__.entries||[];
+    stats=Object.assign({ask:0,hit:0},window.__PRELOADED__.stats||{});
+    save();saveStats();
+  } else if(!localStorage.getItem(LS_ENTRIES))loadDemo();
+}
+function save(){try{localStorage.setItem(LS_ENTRIES,JSON.stringify(entries))}catch(e){alert('保存失败：浏览器存储空间已满，请删掉部分截图后重试')}}
+function saveStats(){localStorage.setItem(LS_STATS,JSON.stringify(stats))}
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const now=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+
+/* ===== 示例数据 ===== */
+function loadDemo(ask){
+  if(ask&&!confirm('将用示例数据覆盖当前问题库（现有条目会被替换），确定？'))return;
+  entries=[
+    {id:uid(),code:'P001',node:'下单',kw:['库存不足','提交时提示库存不足','暂时无法下单','下单失败'],cause:'该商品库存被其他未支付订单占用，或库存同步延迟',sol:'先检查该商品是否被未支付订单占用\n到后台订单管理释放占用库存\n确认后让客户重新提交订单\n若仍失败，核对库存同步是否延迟，稍等 5 分钟再试',note:'不要直接让客户换商品，先释放占用；释放前确认订单确实未支付',shot:'',hits:0,u:now()},
+    {id:uid(),code:'P002',node:'支付',kw:['支付成功但订单未更新','已付款订单还是未支付','付款了没反应'],cause:'支付回调延迟或网络中断导致状态未同步',sol:'先让客户提供支付凭证截图（金额+时间+单号）\n在后台按单号核对收款流水\n确认到账后手动将订单改为已支付\n同步告知客户预计发货时间',note:'没看到流水前不要先发货；凭证要含完整单号',shot:'',hits:0,u:now()},
+    {id:uid(),code:'P003',node:'发货',kw:['物流单号填错','单号录入错误','发错快递'],cause:'出库时手工填写单号有误',sol:'在订单后台找到该单，修改为正确单号\n同步更新给客户的物流信息\n若已发货给错误地址，立即联系快递拦截\n把拦截结果第一时间同步客户',note:'拦截不一定成功，要提前给客户预期，别只说“已经处理”',shot:'',hits:0,u:now()},
+    {id:uid(),code:'P004',node:'对账',kw:['对账金额不一致','账目对不上','系统金额和实际不符'],cause:'【待补充】请按你的实际原因填写',sol:'【待补充】请按你以往的处理方式填写',note:'',shot:'',hits:0,u:now()},
+    {id:uid(),code:'P005',node:'售后',kw:['客户要退货','申请退款','不想要了'],cause:'【待补充】',sol:'【待补充】请按你以往的处理方式填写',note:'',shot:'',hits:0,u:now()}
+  ];
+  save();toast('示例数据已载入，共 '+entries.length+' 条');
+  renderAdmin();renderHeader();renderWelcome();
+}
+
+/* ===== 检索 ===== */
+const SYN=[['多久','什么时候'],['每天','每日'],['咋办','怎么办'],['咋','怎么'],['几号','什么时候']];
+function norm(s){let t=String(s||'').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu,'');SYN.forEach(([a,b])=>{t=t.split(a).join(b)});return t}
+function bigrams(s){const t=norm(s);if(!t)return[];if(t.length<3)return[t];const g=[];for(let i=0;i<t.length-1;i++)g.push(t.slice(i,i+2));return [...new Set(g)]}
+function sim(qG,text){
+  if(!qG.length||!text)return 0;
+  const t=norm(text);if(!t)return 0;
+  let m=0;qG.forEach(g=>{if(t.includes(g))m++});
+  return m/qG.length;
+}
+function fullHit(q,f){const nq=norm(q),nf=norm(f);return !!nq&&!!nf&&(nf===nq||nf.includes(nq))}
+function search(q){
+  const qG=bigrams(q),nq=norm(q);
+  if(!qG.length)return{type:'miss',list:[]};
+  const byCode=entries.find(e=>e.code&&(norm(e.code)===nq||nq.includes(norm(e.code))&&norm(e.code).length>=3));
+  if(byCode)return{type:'hit',e:byCode,list:[]};
+  const scored=entries.map(e=>{
+    let bestKw=0;(e.kw||[]).forEach(k=>{const s=sim(qG,k);if(s>bestKw)bestKw=s});
+    let sc=2.6*bestKw+1.0*sim(qG,e.node)+0.8*sim(qG,e.cause)+0.8*sim(qG,e.sol)+0.5*sim(qG,e.code);
+    (e.kw||[]).forEach(k=>{
+      if(fullHit(q,k))sc+=2.2;
+      const nk=norm(k);if(nk.length>=4&&nq.includes(nk))sc+=1.2;
+    });
+    return{e,sc};
+  }).sort((a,b)=>b.sc-a.sc);
+  const HIT=1.35,SUG=0.5;
+  if(scored[0]&&scored[0].sc>=HIT)return{type:'hit',e:scored[0].e,list:scored.slice(0,3).filter(x=>x.sc>0.5).map(x=>x.e)};
+  return{type:'miss',list:scored.filter(x=>x.sc>=SUG).slice(0,3).map(x=>x.e)};
+}
+
+/* ===== 聊天 ===== */
+function renderHeader(){$('kbCount').textContent=entries.length}
+function addMsg(role,html){
+  const box=document.createElement('div');
+  box.className='msg '+role;
+  box.innerHTML='<div class="m-ava">'+(role==='bot'?'🤖':'🧑')+'</div><div class="m-body"><div class="m-name">AI 助手</div><div class="m-bubble">'+html+'</div><div class="m-time">'+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})+'</div></div>';
+  $('chatList').appendChild(box);$('chatList').scrollTop=$('chatList').scrollHeight;return box;
+}
+function titleOf(e){return (e.kw&&e.kw[0])||e.code||'未命名问题'}
+function renderWelcome(){
+  const hot=entries.filter(e=>!(e.sol||'').includes('【待补充】')&&(e.hits||0)>0).sort((a,b)=>b.hits-a.hits).slice(0,3);
+  addMsg('bot','<div class="welcome"><h3>你好，我是 AI 问答助手 👋</h3><p>把系统报错提示打出来（原样复制最好），我会给出标准处理方案。<br>如果是未收录的问题，我会记录下来，后续更新内容。</p><p class="welcome-tip">小提示：也可直接上传报错截图 📷 自动识别文字。</p></div>'+
+    (hot.length?'<div class="hot-title">🔥 高频问题</div><div class="hot-chips">'+hot.map(e=>'<button class="chip" onclick="askChip(this)" data-id="'+e.id+'">'+esc(titleOf(e))+'</button>').join('')+'</div>':''));
+}
+function askChip(b){const e=entries.find(x=>x.id===b.dataset.id);if(e){$('qInput').value=titleOf(e);send()}}
+function userBubble(q,img){
+  let h='';
+  if(img)h+='<img class="up-img" src="'+esc(img)+'" onclick="zoom(this.src)" alt="截图">';
+  if(q)h+='<div class="up-txt">'+esc(q)+'</div>';
+  return h||'<div class="up-txt">(图片)</div>';
+}
+function botAnswer(q){
+  const t=addMsg('bot','<span class="typing"><i></i><i></i><i></i></span>');
+  setTimeout(()=>{t.remove();const r=search(q);
+    if(r.type==='hit'){stats.hit++;r.e.hits=(r.e.hits||0)+1;save()}
+    saveStats();addMsg('bot',answerHTML(r));},420);
+}
+function send(){
+  const inp=$('qInput'),q=inp.value.trim();if(!q)return;
+  inp.value='';
+  stats.ask++;saveStats();
+  addMsg('user',userBubble(q));
+  botAnswer(q);
+}
+let ocrBusy=false;
+function ocrAsk(input){
+  const f=input.files&&input.files[0];input.value='';
+  if(!f)return;
+  if(ocrBusy){toast('正在识别上一张，请稍候');return}
+  if(typeof Tesseract==='undefined'){toast('识别引擎未加载，请联网后刷新重试');return}
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const dataURL=reader.result;ocrBusy=true;
+    const uid=addMsg('user',userBubble('',dataURL)+'<div class="ocr-status" id="ocrSt">🔍 正在识别图片文字…</div>');
+    Tesseract.recognize(f,'chi_sim',{logger:m=>{if(m.status==='recognizing text'){const el=document.getElementById('ocrSt');if(el)el.textContent='🔍 正在识别图片文字… '+Math.round(m.progress*100)+'%';}}})
+      .then(({data})=>{
+        ocrBusy=false;
+        const txt=(data.text||'').replace(/\s+/g,' ').trim();
+        const st=document.getElementById('ocrSt');if(st)st.remove();
+        if(!txt){toast('没识别到文字，可手动输入报错提示');return;}
+        uid.querySelector('.m-bubble').insertAdjacentHTML('beforeend','<div class="up-txt">'+esc(txt)+'</div>');
+        stats.ask++;saveStats();
+        botAnswer(txt);
+      })
+      .catch(()=>{ocrBusy=false;const st=document.getElementById('ocrSt');if(st){st.textContent='⚠️ 识别失败，请手动输入报错提示';st.className='ocr-status err'}});
+  };
+  reader.readAsDataURL(f);
+}
+function answerHTML(r){
+  if(r.type==='hit'){
+    const e=r.e,isStub=(e.sol||'').includes('【待补充】');
+    const steps=(e.sol||'').split('\n').filter(x=>x.trim()).map(s=>{
+      const isMethod=/^方式\s*[一二三四五六七八九十\dA-Za-z]+/.test(s.trim());
+      return '<li'+(isMethod?' class="m-step"':'')+'>'+esc(s)+'</li>';
+    }).join('');
+    const rel=(r.list||[]).filter(x=>x.id!==e.id).slice(0,2);
+    return '<div class="ans-head"><span class="ans-code">'+esc(e.code||'')+'</span><span class="ans-node">节点：'+esc(e.node||'-')+'</span>'+(isStub?'<span class="ans-stub">方案待补充</span>':'')+'</div>'+
+      '<div class="ans-q">'+esc(titleOf(e))+'</div>'+
+      (isStub?'<div class="ans-sol-head"><span class="ans-sec-icon">📄</span><span class="ans-sec-tag tag-blue">处理方案</span></div><div class="ans-cause">'+esc(e.sol)+'</div>':
+        (e.cause?'<div class="ans-cause-card"><div class="ans-cause-head"><span class="ans-sec-icon">🔍</span><span class="ans-sec-tag tag-amber">问题诊断</span></div><div class="ans-cause-body">'+esc(e.cause)+'</div></div>':'')+
+        '<div class="ans-sol-head"><span class="ans-sec-icon">📄</span><span class="ans-sec-tag tag-blue">处理方案</span></div><ul class="ans-steps">'+steps+'</ul>')+
+      (e.note?'<div class="ans-note-box"><div class="ans-note-head"><span class="ans-sec-icon">⚠️</span><span class="ans-sec-tag tag-red">注意事项</span></div><div class="ans-note">'+esc(e.note)+'</div></div>':'')+
+      (rel.length?'<div class="rel-wrap"><div class="rel-title">相关或相近的问题：</div><div class="rel-chips">'+rel.map(x=>'<button class="chip" onclick="askChip(this)" data-id="'+x.id+'">'+esc(x.code+' '+titleOf(x))+'</button>').join('')+'</div></div>':'');
+  }
+  return '<div class="miss-box">这个问题还没收录，我已记录下来，后续会更新内容。<br>你可以换个说法、把报错提示原文打出来，或联系管理员补录。</div>'+
+    (r.list.length?'<div class="rel-wrap"><div class="rel-title">你可能遇到的是：</div><div class="rel-chips">'+r.list.map(x=>'<button class="chip" onclick="askChip(this)" data-id="'+x.id+'">'+esc(x.code+' '+titleOf(x))+'</button>').join('')+'</div></div>':'');
+}
+$('qInput').addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+function zoom(src){$('lightboxImg').src=src;$('lightbox').classList.add('show')}
+
+/* ===== 密码 ===== */
+let pwMode='in';
+function openPwdModal(change){pwMode=change?'change':'in';$('pwTitle').textContent=change?'修改管理密码':'管理员验证';$('pwInput').value='';$('pwErr').textContent='';$('pwMask').classList.add('show');setTimeout(()=>$('pwInput').focus(),50)}
+function closePw(){$('pwMask').classList.remove('show')}
+function doPwd(){
+  const v=$('pwInput').value;
+  if(pwMode==='change'){if(!/^\d{4,12}$/.test(v)){$('pwErr').textContent='新密码需为 4~12 位数字';return}localStorage.setItem(LS_PASS,v);closePw();toast('密码已修改');return}
+  if(v===localStorage.getItem(LS_PASS)){closePw();enterAdmin()}else{$('pwErr').textContent='密码不对，再想想';$('pwInput').select()}
+}
+$('pwInput').addEventListener('input',()=>{$('pwErr').textContent=''});
+function enterAdmin(){$('chatView').classList.remove('active');$('adminView').classList.add('active');renderAdmin()}
+function backChat(){$('adminView').classList.remove('active');$('chatView').classList.add('active');renderHeader()}
+
+/* ===== 管理端 ===== */
+function nodes(){return ['全部',...new Set(entries.map(e=>e.node||'未分类'))]}
+function renderAdmin(){
+  $('stCount').textContent=entries.length;$('stAsk').textContent=stats.ask;$('stHit').textContent=stats.hit;
+  $('stRate').textContent=stats.ask?Math.round(stats.hit/stats.ask*100)+'%':'-';
+  const bytes=new Blob([JSON.stringify(entries)]).size;
+  $('stSize').textContent=(bytes/1024).toFixed(0)+' KB';
+  $('stBar').style.width=Math.min(100,bytes/(5*1024*1024)*100)+'%';
+  $('catBar').innerHTML=nodes().map(n=>'<button class="cat-pill'+(nodeFilter===n?' on':'')+'" onclick="nodeFilter=\''+esc(n)+'\';renderAdmin()">'+esc(n)+'</button>').join('');
+  $('nodeList').innerHTML=[...new Set(entries.map(e=>e.node).filter(Boolean))].map(n=>'<option value="'+esc(n)+'">').join('');
+  const kw=norm($('adminSearch').value);
+  const list=entries.filter(e=>(nodeFilter==='全部'||(e.node||'未分类')===nodeFilter)&&(!kw||norm((e.code||'')+(e.node||'')+(e.kw||[]).join('')+(e.cause||'')).includes(kw)));
+  $('entryList').innerHTML=list.length?list.map(e=>
+    '<div class="entry"><div class="e-main"><div class="e-top"><span class="e-code">'+esc(e.code||'-')+'</span><span class="e-node">'+esc(e.node||'未分类')+'</span>'+(e.shot?'<span class="e-node">📷</span>':'')+'</div>'+
+    '<div class="e-q">'+esc(titleOf(e))+'</div>'+
+    '<div class="e-meta"><span>提示词：'+esc((e.kw||[]).slice(0,3).join(' / '))+((e.kw||[]).length>3?' 等'+(e.kw||[]).length+'条':'')+'</span></div>'+
+    '<div class="e-meta"><span>更新 '+esc(e.u||'-')+'</span><span>被问 '+(e.hits||0)+' 次</span></div></div>'+
+    '<div class="e-ops"><button class="e-op" onclick="openForm(\''+e.id+'\')">编辑</button><button class="e-op del" onclick="delEntry(\''+e.id+'\')">删除</button></div></div>'
+  ).join(''):'<div class="empty-tip">暂无条目<br>点「＋ 新增问题」录入，或用表格批量导入</div>';
+}
+function openForm(id){
+  editId=id||null;shotData='';
+  $('formTitle').innerHTML=(id?'编辑问题':'新增问题')+' <button class="m-close" onclick="closeForm()">×</button>';
+  const e=id?entries.find(x=>x.id===id):null;
+  $('fCode').value=e?e.code||'':nextCode();
+  $('fNode').value=e?e.node||'':'';
+  $('fKw').value=e?(e.kw||[]).join('\n'):'';
+  $('fCause').value=e?e.cause||'':'';
+  $('fSol').value=e?e.sol||'':'';
+  $('fNote').value=e?e.note||'':'';
+  $('fShot').value=e&&e.shot&&e.shot.startsWith('http')?e.shot:'';
+  shotData=e&&e.shot&&!e.shot.startsWith('http')?e.shot:'';
+  renderShot();
+  $('formMask').classList.add('show');setTimeout(()=>$('fKw').focus(),50);
+}
+function nextCode(){
+  const nums=entries.map(e=>parseInt(String(e.code||'').replace(/\D/g,''),10)).filter(n=>!isNaN(n));
+  return 'P'+String((nums.length?Math.max(...nums)+1:1)).padStart(3,'0');
+}
+function closeForm(){$('formMask').classList.remove('show')}
+function renderShot(){
+  $('shotPreview').innerHTML=shotData?'<img src="'+shotData+'" onclick="zoom(this.src)">':'';
+  $('shotDel').style.display=shotData?'inline-block':'none';
+}
+function clearShot(){shotData='';$('fShot').value='';renderShot()}
+function pickShot(input){
+  const f=input.files[0];input.value='';if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
+      const maxW=760,scale=Math.min(1,maxW/img.width);
+      const c=document.createElement('canvas');
+      c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      shotData=c.toDataURL('image/jpeg',0.72);
+      $('fShot').value='';renderShot();
+      toast('截图已压缩到 '+(shotData.length/1024).toFixed(0)+' KB');
+    };
+    img.src=r.result;
+  };
+  r.readAsDataURL(f);
+}
+function saveForm(){
+  const code=$('fCode').value.trim(),node=$('fNode').value.trim();
+  const kw=$('fKw').value.split('\n').map(x=>x.trim()).filter(Boolean);
+  const sol=$('fSol').value.trim();
+  if(!code){toast('请填写问题编号');return}
+  if(!kw.length){toast('至少写一条问题提示词');return}
+  if(!sol){toast('请填写解决方式');return}
+  const shot=shotData||$('fShot').value.trim();
+  const data={code,node:node||'未分类',kw,cause:$('fCause').value.trim(),sol,note:$('fNote').value.trim(),shot,u:now()};
+  if(editId){Object.assign(entries.find(x=>x.id===editId),data);toast('已保存修改')}
+  else{entries.push(Object.assign({id:uid(),hits:0},data));toast('已新增 '+code)}
+  save();closeForm();renderAdmin();renderHeader();
+}
+function delUnnamed(){
+  const kwEmpty=e=>!(e.kw&&e.kw.some(k=>String(k).trim()));
+  const stub=entries.filter(kwEmpty);
+  if(!stub.length){alert('没有可清空的问题：当前所有条目都带有有效提示词，无需清理。');return;}
+  if(!confirm('将删除 '+stub.length+' 条"无提示词"问题（员工端无法被检索到，属空壳）。确认删除？'))return;
+  const ids=new Set(stub.map(e=>e.id));
+  entries=entries.filter(e=>!ids.has(e.id));
+  save();renderAdmin();renderHeader();toast('已删除 '+stub.length+' 条无提示词问题');
+}
+function delEntry(id){
+  const e=entries.find(x=>x.id===id);
+  if(!confirm('删除「'+(e?e.code+' '+titleOf(e):'')+'」？删除后员工端立即查不到。'))return;
+  entries=entries.filter(x=>x.id!==id);save();renderAdmin();renderHeader();toast('已删除');
+}
+
+/* ===== 备份 / 表格 ===== */
+function download(name,content,type){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type}));
+  a.download=name;a.click();URL.revokeObjectURL(a.href);
+}
+function exportJSON(){
+  download('问题库备份-'+now().replace(/-/g,'')+'.json',JSON.stringify({app:'ai-faq',ver:2,exportedAt:new Date().toISOString(),stats,entries},null,2),'application/json');
+  toast('已导出 '+entries.length+' 条，请保存好文件');
+}
+function exportSelfHTML(){
+  if(!entries.length){toast('当前没有数据可导出');return;}
+  const wasAdmin=document.body.classList.contains('admin-open');
+  document.body.classList.remove('admin-open');
+  const openMasks=[...document.querySelectorAll('.mask.show')];
+  openMasks.forEach(m=>m.classList.remove('show'));
+  const objLiteral=JSON.stringify({app:'ai-faq',ver:2,exportedAt:new Date().toISOString(),stats,entries}).replace(/</g,'\\u003c');
+  const inject='<scr'+'ipt>window.__PRELOADED__='+objLiteral+';<\/scr'+'ipt>';
+  let html='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+  html=html.indexOf('</head>')>=0?html.replace('</head>',inject+'\n</head>'):html.replace('</body>',inject+'\n</body>');
+  if(wasAdmin)document.body.classList.add('admin-open');
+  openMasks.forEach(m=>m.classList.add('show'));
+  download('AI问答助手-自带数据副本.html',html,'text/html');
+  toast('已生成自带数据副本，以后用这个文件就不会丢数据');
+}
+const HEADERS=['问题编号','出现节点','问题提示词','截图链接','出现原因','解决方式','注意事项'];
+function exportCSV(){
+  const rows=[HEADERS.join(',')];
+  rows.push(['P001','下单','"库存不足\n提交失败"','','库存被占用','"先检查占用\n释放后重提"','别让客户换商品'].join(','));
+  download('问题库表格模板.csv','\ufeff'+rows.join('\r\n'),'text/csv;charset=utf-8');
+  toast('模板已下载：用 Excel 填好后「表格导入」');
+}
+function parseCSV(text){
+  text=text.replace(/^\ufeff/,'');
+  const firstLine=(text.split(/\r?\n/)[0])||'';
+  const delim=(firstLine.includes(';')&&!firstLine.includes(','))?';':',';
+  const rows=[];let row=[],cur='',inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'){if(text[i+1]==='"'){cur+='"';i++}else inQ=false}
+      else cur+=c;
+    }else if(c==='"')inQ=true;
+    else if(c===delim){row.push(cur);cur=''}
+    else if(c==='\n'){row.push(cur);rows.push(row);row=[];cur=''}
+    else if(c!=='\r')cur+=c;
+  }
+  row.push(cur);rows.push(row);
+  return rows.filter(r=>r.some(c=>String(c).trim()!==''));
+}
+function importCSV(input){
+  const f=input.files[0];input.value='';if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    let text;
+    try{text=new TextDecoder('utf-8',{fatal:true}).decode(r.result);}
+    catch(_){try{text=new TextDecoder('gbk').decode(r.result);}catch(__){text=new TextDecoder('utf-8').decode(r.result);}}
+    const rows=parseCSV(text);
+    if(rows.length<2){toast('表格里没有可导入的数据');return}
+    const head=rows[0].map(h=>String(h).trim());
+    const iCode=head.findIndex(h=>h.includes('编号')),iNode=head.findIndex(h=>h.includes('节点')),
+      iKw=head.findIndex(h=>h.includes('提示词')||h.includes('关键词')),iShot=head.findIndex(h=>h.includes('截图')),
+      iCause=head.findIndex(h=>h.includes('原因')),iSol=head.findIndex(h=>h.includes('解决')||h.includes('处理')||h.includes('方案')),
+      iNote=head.findIndex(h=>h.includes('注意'));
+    if(iKw<0||iSol<0){toast('未找到「问题提示词/解决方式」列，请用模板表头：'+head.slice(0,7).join(' | '));console.log('导入表头：',head);return}
+    let n=0,upd=0;
+    rows.slice(1).forEach(r=>{
+      const kw=String(r[iKw]||'').split(/[\n;；|]/).map(x=>x.trim()).filter(Boolean);
+      const sol=String(r[iSol]||'').trim();
+      if(!kw.length||!sol)return;
+      const code=String(r[iCode]||'').trim()||nextCode();
+      const data={code,node:String(r[iNode]||'').trim()||'未分类',kw,
+        cause:String(r[iCause]||'').trim(),sol,note:String(r[iNote]||'').trim(),
+        shot:(iShot>=0?String(r[iShot]||'').trim():''),u:now()};
+      const ex=entries.find(e=>e.code&&e.code===code);
+      if(ex){Object.assign(ex,data);upd++}else{entries.push(Object.assign({id:uid(),hits:0},data));n++}
+    });
+    save();renderAdmin();renderHeader();
+    toast('导入完成：新增 '+n+' 条'+(upd?'，更新 '+upd+' 条':''));
+  };
+  r.readAsArrayBuffer(f);
+}
+let impData=null;
+function importJSON(input){
+  const f=input.files[0];input.value='';if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.entries))throw 0;impData=d;$('impMask').classList.add('show')}catch(e){toast('文件格式不对，导入失败')}};
+  r.readAsText(f,'utf-8');
+}
+function closeImp(){$('impMask').classList.remove('show');impData=null}
+function doImport(mode){
+  if(!impData)return;
+  if(mode==='replace')entries=impData.entries;
+  else{const has=new Set(entries.map(e=>e.code));impData.entries.forEach(e=>{if(!has.has(e.code))entries.push(e)})}
+  entries.forEach(e=>{e.id=e.id||uid();e.kw=Array.isArray(e.kw)?e.kw:(String(e.kw||'').split('\n').filter(Boolean))});
+  save();closeImp();renderAdmin();renderHeader();toast('导入完成，当前共 '+entries.length+' 条');
+}
+
+let tT=null;
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('show'),2400)}
+
+load();renderHeader();renderWelcome();
+</script>
+
+
+</body></html>
