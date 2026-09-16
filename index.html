@@ -292,6 +292,16 @@ footer{padding:10px 14px calc(12px + env(safe-area-inset-bottom));background:lin
 </div>
 
 <div id="lightbox" onclick="this.classList.remove('show')"><img id="lightboxImg" src="" alt=""></div>
+<div class="modal-mask" id="confirmMask" onclick="if(event.target===this)confirmNo()">
+  <div class="modal" style="max-width:360px">
+    <h3 id="confirmTitle">确认操作</h3>
+    <p id="confirmMsg" style="margin:10px 0 0;line-height:1.6;color:var(--text)"></p>
+    <div class="m-btns">
+      <button class="m-btn sec" onclick="confirmNo()">取消</button>
+      <button class="m-btn pri" id="confirmYesBtn" style="background:#dc2626" onclick="confirmYes()">确定</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
@@ -316,23 +326,26 @@ function load(){
     }
   } else if(!localStorage.getItem(LS_ENTRIES))loadDemo();
 }
-function save(){try{localStorage.setItem(LS_ENTRIES,JSON.stringify(entries))}catch(e){alert('保存失败：浏览器存储空间已满，请删掉部分截图后重试')}}
+function save(){try{localStorage.setItem(LS_ENTRIES,JSON.stringify(entries))}catch(e){toast('保存失败：浏览器存储空间已满，请删掉部分截图后重试')}}
 function saveStats(){localStorage.setItem(LS_STATS,JSON.stringify(stats))}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const now=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 
 /* ===== 示例数据 ===== */
 function loadDemo(ask){
-  if(ask&&!confirm('将用示例数据覆盖当前问题库（现有条目会被替换），确定？'))return;
-  entries=[
-    {id:uid(),code:'P001',node:'下单',kw:['库存不足','提交时提示库存不足','暂时无法下单','下单失败'],cause:'该商品库存被其他未支付订单占用，或库存同步延迟',sol:'先检查该商品是否被未支付订单占用\n到后台订单管理释放占用库存\n确认后让客户重新提交订单\n若仍失败，核对库存同步是否延迟，稍等 5 分钟再试',note:'不要直接让客户换商品，先释放占用；释放前确认订单确实未支付',shot:'',hits:0,u:now()},
-    {id:uid(),code:'P002',node:'支付',kw:['支付成功但订单未更新','已付款订单还是未支付','付款了没反应'],cause:'支付回调延迟或网络中断导致状态未同步',sol:'先让客户提供支付凭证截图（金额+时间+单号）\n在后台按单号核对收款流水\n确认到账后手动将订单改为已支付\n同步告知客户预计发货时间',note:'没看到流水前不要先发货；凭证要含完整单号',shot:'',hits:0,u:now()},
-    {id:uid(),code:'P003',node:'发货',kw:['物流单号填错','单号录入错误','发错快递'],cause:'出库时手工填写单号有误',sol:'在订单后台找到该单，修改为正确单号\n同步更新给客户的物流信息\n若已发货给错误地址，立即联系快递拦截\n把拦截结果第一时间同步客户',note:'拦截不一定成功，要提前给客户预期，别只说“已经处理”',shot:'',hits:0,u:now()},
-    {id:uid(),code:'P004',node:'对账',kw:['对账金额不一致','账目对不上','系统金额和实际不符'],cause:'【待补充】请按你的实际原因填写',sol:'【待补充】请按你以往的处理方式填写',note:'',shot:'',hits:0,u:now()},
-    {id:uid(),code:'P005',node:'售后',kw:['客户要退货','申请退款','不想要了'],cause:'【待补充】',sol:'【待补充】请按你以往的处理方式填写',note:'',shot:'',hits:0,u:now()}
-  ];
-  save();toast('示例数据已载入，共 '+entries.length+' 条');
-  renderAdmin();renderHeader();renderWelcome();
+  const doLoad=()=>{
+    entries=[
+      {id:uid(),code:'P001',node:'下单',kw:['库存不足','提交时提示库存不足','暂时无法下单','下单失败'],cause:'该商品库存被其他未支付订单占用，或库存同步延迟',sol:'先检查该商品是否被未支付订单占用\n到后台订单管理释放占用库存\n确认后让客户重新提交订单\n若仍失败，核对库存同步是否延迟，稍等 5 分钟再试',note:'不要直接让客户换商品，先释放占用；释放前确认订单确实未支付',shot:'',hits:0,u:now()},
+      {id:uid(),code:'P002',node:'支付',kw:['支付成功但订单未更新','已付款订单还是未支付','付款了没反应'],cause:'支付回调延迟或网络中断导致状态未同步',sol:'先让客户提供支付凭证截图（金额+时间+单号）\n在后台按单号核对收款流水\n确认到账后手动将订单改为已支付\n同步告知客户预计发货时间',note:'没看到流水前不要先发货；凭证要含完整单号',shot:'',hits:0,u:now()},
+      {id:uid(),code:'P003',node:'发货',kw:['物流单号填错','单号录入错误','发错快递'],cause:'出库时手工填写单号有误',sol:'在订单后台找到该单，修改为正确单号\n同步更新给客户的物流信息\n若已发货给错误地址，立即联系快递拦截\n把拦截结果第一时间同步客户',note:'拦截不一定成功，要提前给客户预期，别只说“已经处理”',shot:'',hits:0,u:now()},
+      {id:uid(),code:'P004',node:'对账',kw:['对账金额不一致','账目对不上','系统金额和实际不符'],cause:'【待补充】请按你的实际原因填写',sol:'【待补充】请按你以往的处理方式填写',note:'',shot:'',hits:0,u:now()},
+      {id:uid(),code:'P005',node:'售后',kw:['客户要退货','申请退款','不想要了'],cause:'【待补充】',sol:'【待补充】请按你以往的处理方式填写',note:'',shot:'',hits:0,u:now()}
+    ];
+    save();toast('示例数据已载入，共 '+entries.length+' 条');
+    renderAdmin();renderHeader();renderWelcome();
+  };
+  if(ask){confirmDialog('将用示例数据覆盖当前问题库（现有条目会被替换），确定？', doLoad, '恢复示例');return;}
+  doLoad();
 }
 
 /* ===== 检索 ===== */
@@ -535,19 +548,37 @@ function saveForm(){
   else{entries.push(Object.assign({id:uid(),hits:0},data));toast('已新增 '+code)}
   save();closeForm();renderAdmin();renderHeader();
 }
+function confirmDialog(msg, onYes, title){
+  $('confirmMsg').textContent=msg;
+  $('confirmTitle').textContent=title||'确认操作';
+  window.__confirmCb=onYes;
+  $('confirmMask').classList.add('show');
+}
+function confirmYes(){
+  const cb=window.__confirmCb;
+  $('confirmMask').classList.remove('show');
+  window.__confirmCb=null;
+  if(cb)cb();
+}
+function confirmNo(){
+  $('confirmMask').classList.remove('show');
+  window.__confirmCb=null;
+}
 function delUnnamed(){
   const kwEmpty=e=>!(e.kw&&e.kw.some(k=>String(k).trim()));
   const stub=entries.filter(kwEmpty);
-  if(!stub.length){alert('没有可清空的问题：当前所有条目都带有有效提示词，无需清理。');return;}
-  if(!confirm('将删除 '+stub.length+' 条"无提示词"问题（员工端无法被检索到，属空壳）。确认删除？'))return;
-  const ids=new Set(stub.map(e=>e.id));
-  entries=entries.filter(e=>!ids.has(e.id));
-  save();renderAdmin();renderHeader();toast('已删除 '+stub.length+' 条无提示词问题');
+  if(!stub.length){toast('没有可清空的问题：当前所有条目都带有有效提示词，无需清理。');return;}
+  confirmDialog('将删除 '+stub.length+' 条"无提示词"问题（员工端无法被检索到，属空壳）。确认删除？', ()=>{
+    const ids=new Set(stub.map(e=>e.id));
+    entries=entries.filter(e=>!ids.has(e.id));
+    save();renderAdmin();renderHeader();toast('已删除 '+stub.length+' 条无提示词问题');
+  }, '清空未命名');
 }
 function delEntry(id){
   const e=entries.find(x=>x.id===id);
-  if(!confirm('删除「'+(e?e.code+' '+titleOf(e):'')+'」？删除后员工端立即查不到。'))return;
-  entries=entries.filter(x=>x.id!==id);save();renderAdmin();renderHeader();toast('已删除');
+  confirmDialog('删除「'+(e?e.code+' '+titleOf(e):'')+'」？删除后员工端立即查不到。', ()=>{
+    entries=entries.filter(x=>x.id!==id);save();renderAdmin();renderHeader();toast('已删除');
+  }, '删除问题');
 }
 
 /* ===== 备份 / 表格 ===== */
